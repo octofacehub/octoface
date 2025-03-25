@@ -94,8 +94,9 @@ def create_model_pr(model_name, description, tags, ipfs_cid, model_path):
             console.print("[red]Failed to create branch[/red]")
             return None
         
-        # Create model directory structure
-        model_dir = f"models/{github_username}/{model_name}"
+        # Create model directory structure using the GitHub username
+        model_name_slug = model_name.lower().replace(" ", "-")
+        model_dir = f"models/{github_username}/{model_name_slug}"
         
         # Create files in the new branch
         files_to_create = [
@@ -123,7 +124,7 @@ def create_model_pr(model_name, description, tags, ipfs_cid, model_path):
                 return None
         
         # Update the global model map
-        if not update_model_map(metadata, github_username, model_name, branch_name):
+        if not update_model_map(metadata, github_username, model_name_slug, branch_name):
             console.print("[red]Failed to update model map[/red]")
             return None
         
@@ -385,7 +386,7 @@ def update_model_map(metadata, github_username, model_name, branch):
     Args:
         metadata (dict): Model metadata
         github_username (str): GitHub username
-        model_name (str): Model name
+        model_name (str): Model name (slug format)
         branch (str): Branch to update
         
     Returns:
@@ -431,13 +432,14 @@ def update_model_map(metadata, github_username, model_name, branch):
             "ipfs_cid": metadata["ipfs_cid"],
             "size_mb": metadata["size_mb"],
             "created_at": metadata["created_at"],
-            "path": f"models/{metadata['author']}/{metadata['name']}"
+            "path": f"models/{github_username}/{model_name}"
         }
         
         # Check if model already exists in the map
         exists = False
         for i, model in enumerate(model_map["models"]):
-            if model.get("name") == model_entry["name"] and model.get("author") == model_entry["author"]:
+            model_path = model.get("path", "")
+            if model_path == model_entry["path"]:
                 # Update the existing entry
                 model_map["models"][i] = model_entry
                 exists = True

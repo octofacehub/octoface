@@ -320,7 +320,10 @@ def generate_files(path, name, description, tags, cid, output):
     github_username = get_github_username() if github_token else "YOUR_GITHUB_USERNAME"
     
     # Write files to output directory
-    model_dir = os.path.join(output, name.lower().replace(" ", "-"))
+    model_name = name.lower().replace(" ", "-")
+    user_dir = os.path.join(output, github_username)
+    os.makedirs(user_dir, exist_ok=True)
+    model_dir = os.path.join(user_dir, model_name)
     os.makedirs(model_dir, exist_ok=True)
     
     with open(os.path.join(model_dir, "metadata.json"), "w") as f:
@@ -345,12 +348,12 @@ To add your model to OctoFaceHub, follow these steps:
    ```
 3. Copy the generated files to your cloned repository:
    ```
-   mkdir -p models/{name.lower().replace(" ", "-")}
-   cp -r {model_dir}/* models/{name.lower().replace(" ", "-")}/
+   mkdir -p models/{github_username}/{model_name}
+   cp -r {model_dir}/* models/{github_username}/{model_name}/
    ```
 4. Commit and push your changes:
    ```
-   git add models/{name.lower().replace(" ", "-")}
+   git add models/{github_username}/{model_name}
    git commit -m "Add {name} model"
    git push
    ```
