@@ -11,7 +11,7 @@ from octoface import __version__
 from octoface.downloader import download_model
 from octoface.uploader import upload_to_ipfs, generate_model_tree
 from octoface.github import create_model_pr, test_github_access, get_github_username
-from octoface.utils import check_credentials, generate_model_metadata, generate_readme
+from octoface.utils import check_credentials, generate_model_metadata, generate_readme, create_pull_request
 
 console = Console()
 
@@ -65,104 +65,49 @@ def download(model_path, output):
 
 
 @cli.command()
-@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True), required=False)
-@click.option("--name", "-n", help="Name of the model.", type=str)
-@click.option("--description", "-d", help="Description of the model.", type=str)
-@click.option("--tags", "-t", help="Comma-separated list of tags.", type=str)
+@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True))
+@click.option("--name", "-n", help="Name of the model.", required=True, type=str)
+@click.option("--description", "-d", help="Description of the model.", required=True, type=str)
+@click.option(
+    "--tags", "-t", help="Comma-separated list of tags.", required=True, type=str
+)
 def upload(path, name, description, tags):
-    """Upload a model to IPFS and create a pull request on GitHub.
-    
-    If the path is a HuggingFace model ID (starting with 'hf://'), the model will be
-    downloaded from HuggingFace Hub first.
-    
-    Examples:
-    
-    \b
-    # Upload local model with all options
-    $ octoface upload ./path/to/model --name "My Model" --description "A description" --tags "tag1,tag2"
-    
-    \b
-    # Upload from HuggingFace
-    $ octoface upload hf://username/model-name --name "HF Model" --description "A model from HuggingFace"
-    """
-    # Check if GITHUB_API_TOKEN is set
-    if not os.environ.get("GITHUB_API_TOKEN"):
-        console.print("[red]GITHUB_API_TOKEN environment variable is not set.[/red]")
-        console.print("[yellow]Please set it using: export GITHUB_API_TOKEN=\"your-github-api-token\"[/yellow]")
-        sys.exit(1)
-    
+    """Upload a model to IPFS and submit it to OctoFaceHub."""
     # Process HuggingFace model ID
-    if path and path.startswith("hf://"):
+    if path.startswith("hf://"):
         console.print(f"Downloading model from HuggingFace: {path[5:]}")
         model_path = download_model(path[5:])
         if not model_path:
             console.print("[red]Failed to download model.[/red]")
             sys.exit(1)
         path = model_path
-    
-    # Get model name if not provided
-    if not name and path:
-        # Use the directory name as the model name
-        name = os.path.basename(os.path.abspath(path))
-        console.print(f"Using directory name as model name: {name}")
-    
-    if not name:
-        console.print("[red]Model name is required.[/red]")
-        sys.exit(1)
-    
-    # Get description if not provided
-    if not description:
-        description = click.prompt("Enter a description for the model", default="")
-    
-    # Get tags if not provided
-    if not tags:
-        tags = click.prompt("Enter comma-separated tags for the model", default="")
-    
-    # Convert tags string to list
-    tags_list = [tag.strip() for tag in tags.split(",")]
-    
-    # Upload model to IPFS
+
+    # Upload to IPFS
     console.print(f"Uploading model to IPFS: {path}")
     cid = upload_to_ipfs(path)
     if not cid:
         console.print("[red]Failed to upload model to IPFS.[/red]")
         sys.exit(1)
-    
     console.print(f"[green]Model uploaded to IPFS with CID: {cid}[/green]")
     console.print(f"[green]View your model at https://w3s.link/ipfs/{cid}[/green]")
+
+    # Try to create a PR to the main repository
+    tags_list = [tag.strip() for tag in tags.split(",")]
+    metadata = generate_model_metadata(name, description, tags_list, cid, path)
+    readme = generate_readme(metadata, path)
     
-    # Create pull request on GitHub
-    console.print("")
-    console.print("[bold]Creating GitHub Pull Request...[/bold]")
-    console.print("[yellow]This process will:[/yellow]")
-    console.print("[yellow]1. Check if you have direct push access to the repository[/yellow]")
-    console.print("[yellow]2. If you do, create a PR directly[/yellow]")
-    console.print("[yellow]3. If not, automatically create a fork, add files, and submit a PR from your fork[/yellow]")
-    console.print("")
+    try:
+        result = create_pull_request(name, metadata, readme)
+        if result:
+            console.print("[green]Pull request created successfully![/green]")
+            console.print(f"[green]View your pull request at: {result}[/green]")
+            return
+    except Exception as e:
+        console.print(f"[red]Failed to create pull request: {str(e)}[/red]")
     
-    # Test GitHub access before proceeding
-    console.print("Testing GitHub API access...")
-    if not test_github_access():
-        console.print("[red]Failed to access GitHub API. Please check your token and internet connection.[/red]")
-        sys.exit(1)
-    
-    pr_url = create_model_pr(name, description, tags, cid, path)
-    
-    if pr_url:
-        console.print("")
-        console.print(f"[bold green]Model submission complete![/bold green]")
-        console.print(f"[green]IPFS CID: {cid}[/green]")
-        console.print(f"[green]Pull Request: {pr_url}[/green]")
-        console.print("")
-        console.print("[yellow]The OctoFaceHub team will review your submission.[/yellow]")
-    else:
-        console.print("")
-        console.print("[yellow]Model was uploaded to IPFS but the GitHub PR process failed.[/yellow]")
-        console.print(f"[green]IPFS CID: {cid}[/green]")
-        console.print(f"[green]Access at: https://w3s.link/ipfs/{cid}[/green]")
-        console.print("")
-        console.print("[yellow]You can try again later or use 'octoface generate-files' to manually create the files.[/yellow]")
-        sys.exit(1)
+    # If PR creation failed, fall back to manual generation
+    console.print("[yellow]Falling back to manual file generation...[/yellow]")
+    generate_files(path=path, name=name, description=description, tags=tags, cid=cid, output="octofacehub_files")
 
 
 @cli.command()
@@ -354,10 +299,10 @@ def generate_files(path, name, description, tags, cid, output):
     
     # Generate model metadata
     tags_list = [tag.strip() for tag in tags.split(",")]
-    metadata = generate_model_metadata(name, description, tags_list, cid)
+    metadata = generate_model_metadata(name, description, tags_list, cid, path)
     
     # Generate README
-    readme = generate_readme(name, description, tags_list, cid)
+    readme = generate_readme(metadata, path)
     
     # Generate model tree
     model_tree = generate_model_tree(name, metadata, readme)

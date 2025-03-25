@@ -9,7 +9,7 @@ import requests
 from rich.console import Console
 import time
 
-from octoface.utils import get_github_username, generate_model_metadata, generate_readme
+from octoface.utils import get_github_username
 from octoface.uploader import generate_model_tree
 
 console = Console()
@@ -55,8 +55,12 @@ def create_model_pr(model_name, description, tags, ipfs_cid, model_path):
         model_name_slug = model_name.lower().replace(" ", "-")
         branch_name = f"add-model-{model_name_slug}-{timestamp}"
         
+        # Import generate_model_metadata and generate_readme to avoid circular imports
+        from octoface.utils import generate_model_metadata, generate_readme
+        
         # Generate model metadata
-        metadata = generate_model_metadata(model_name, description, tags, ipfs_cid, model_path)
+        tags_list = [tag.strip() for tag in tags.split(",")] if isinstance(tags, str) else tags
+        metadata = generate_model_metadata(model_name, description, tags_list, ipfs_cid, model_path)
         if not metadata:
             console.print("[red]Failed to generate model metadata[/red]")
             return None
