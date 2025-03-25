@@ -317,7 +317,10 @@ def generate_files(path, name, description, tags, cid, output):
     model_tree = generate_model_tree(name, metadata, readme)
     
     # Get GitHub username if token is available
-    github_username = get_github_username() if github_token else "YOUR_GITHUB_USERNAME"
+    github_username = get_github_username() 
+    if not github_username:
+        github_username = "anonymous"
+        console.print("[yellow]GitHub username not available, using 'anonymous'[/yellow]")
     
     # Write files to output directory
     model_name = name.lower().replace(" ", "-")

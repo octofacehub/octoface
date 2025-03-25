@@ -1,29 +1,46 @@
 # Changelog
 
-All notable changes to the Octoface CLI will be documented in this file.
+All notable changes to the OctoFace CLI will be documented in this file.
 
-## [0.2.0] - 2023-03-25
+## [0.3.0] - 2023-07-31
 
 ### Added
 
-- New directory structure using `models/github-username/model-name/`
-- Improved validation for ensuring author matches directory name
-- Added `generate-files` command for users without push access
-- PyPI publishing workflow with OIDC authentication
-- Basic test suite with pytest
+- Enhanced GitHub Actions workflow for validating PR changes
+- Automated model-map.json updates when users add or modify models
+- Improved error handling for unauthorized access
+- Better instructions for third-party contributors
 
 ### Changed
 
-- Updated GitHub integration to check for push access
-- Modified the model map update logic to use path-based lookup
-- Improved error handling and user feedback
+- Improved user permission model based on GitHub usernames
+- Updated documentation to reflect new contribution process
+- Enhanced error messages for better user experience
 
-## [0.1.0] - 2023-03-24
+### Fixed
+
+- Fixed handling of GitHub token validation
+- Fixed error handling for anonymous users
+- Fixed path handling in model directory generation
+
+## [0.2.0] - 2023-07-20
 
 ### Added
 
-- Initial release of the Octoface CLI tool
-- Support for uploading models to IPFS
-- Integration with GitHub for creating pull requests
-- Basic model metadata generation
-- HuggingFace model download support
+- `generate-files` command for users without push access
+- Support for manual model submission
+- Improved error handling and user feedback
+
+### Changed
+
+- Enhanced permission checking logic
+- Updated documentation and examples
+
+## [0.1.0] - 2023-07-10
+
+### Added
+
+- Initial release
+- IPFS upload functionality
+- GitHub PR creation
+- Basic model metadata handling
