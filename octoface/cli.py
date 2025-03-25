@@ -65,57 +65,103 @@ def download(model_path, output):
 
 
 @cli.command()
-@click.argument("path")
-@click.option("--name", help="Name of the model")
-@click.option("--description", help="Description of the model")
-@click.option("--tags", help="Comma-separated list of tags")
+@click.argument("path", type=click.Path(exists=True, file_okay=False, dir_okay=True), required=False)
+@click.option("--name", "-n", help="Name of the model.", type=str)
+@click.option("--description", "-d", help="Description of the model.", type=str)
+@click.option("--tags", "-t", help="Comma-separated list of tags.", type=str)
 def upload(path, name, description, tags):
-    """
-    Upload a model to IPFS and create a PR to add it to OctoFaceHub.
+    """Upload a model to IPFS and create a pull request on GitHub.
     
-    PATH can be a local directory or a HuggingFace model ID (username/model).
-    """
-    try:
-        # Check if GitHub token is available (required for PR creation)
-        github_token = os.environ.get("GITHUB_API_TOKEN")
-        if not github_token:
-            console.print("[red]GitHub API token not found. Please set GITHUB_API_TOKEN environment variable.[/red]")
-            console.print("[yellow]Example: export GITHUB_API_TOKEN=\"your-github-api-token\"[/yellow]")
-            sys.exit(1)
-            
-        # Check if path is a HuggingFace model ID
-        if "/" in path and not os.path.exists(path):
-            console.print(f"[yellow]Model path appears to be a HuggingFace ID. Downloading first...[/yellow]")
-            path = download_model(path, "./")
-            if not path:
-                console.print("[red]Failed to download model from HuggingFace[/red]")
-                sys.exit(1)
-        
-        # If no name is provided, use the directory name
-        if not name:
-            name = os.path.basename(os.path.normpath(path))
-        
-        # Upload to IPFS
-        console.print("[yellow]Uploading to IPFS...[/yellow]")
-        cid = upload_to_ipfs(path)
-        if not cid:
-            console.print("[red]Failed to upload to IPFS[/red]")
-            sys.exit(1)
-        
-        console.print(f"[green]Successfully uploaded to IPFS with CID: {cid}[/green]")
-        
-        # Create GitHub PR
-        console.print("[yellow]Creating GitHub PR...[/yellow]")
-        pr_url = create_model_pr(name, description, tags, cid, path)
-        
-        if pr_url:
-            console.print(f"[green]Successfully created PR: {pr_url}[/green]")
-            console.print("[green]Your model will be added to OctoFaceHub after the PR is merged.[/green]")
-        else:
-            console.print("[red]Failed to create GitHub PR[/red]")
+    If the path is a HuggingFace model ID (starting with 'hf://'), the model will be
+    downloaded from HuggingFace Hub first.
     
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    Examples:
+    
+    \b
+    # Upload local model with all options
+    $ octoface upload ./path/to/model --name "My Model" --description "A description" --tags "tag1,tag2"
+    
+    \b
+    # Upload from HuggingFace
+    $ octoface upload hf://username/model-name --name "HF Model" --description "A model from HuggingFace"
+    """
+    # Check if GITHUB_API_TOKEN is set
+    if not os.environ.get("GITHUB_API_TOKEN"):
+        console.print("[red]GITHUB_API_TOKEN environment variable is not set.[/red]")
+        console.print("[yellow]Please set it using: export GITHUB_API_TOKEN=\"your-github-api-token\"[/yellow]")
+        sys.exit(1)
+    
+    # Process HuggingFace model ID
+    if path and path.startswith("hf://"):
+        console.print(f"Downloading model from HuggingFace: {path[5:]}")
+        model_path = download_model(path[5:])
+        if not model_path:
+            console.print("[red]Failed to download model.[/red]")
+            sys.exit(1)
+        path = model_path
+    
+    # Get model name if not provided
+    if not name and path:
+        # Use the directory name as the model name
+        name = os.path.basename(os.path.abspath(path))
+        console.print(f"Using directory name as model name: {name}")
+    
+    if not name:
+        console.print("[red]Model name is required.[/red]")
+        sys.exit(1)
+    
+    # Get description if not provided
+    if not description:
+        description = click.prompt("Enter a description for the model", default="")
+    
+    # Get tags if not provided
+    if not tags:
+        tags = click.prompt("Enter comma-separated tags for the model", default="")
+    
+    # Convert tags string to list
+    tags_list = [tag.strip() for tag in tags.split(",")]
+    
+    # Upload model to IPFS
+    console.print(f"Uploading model to IPFS: {path}")
+    cid = upload_to_ipfs(path)
+    if not cid:
+        console.print("[red]Failed to upload model to IPFS.[/red]")
+        sys.exit(1)
+    
+    console.print(f"[green]Model uploaded to IPFS with CID: {cid}[/green]")
+    console.print(f"[green]View your model at https://w3s.link/ipfs/{cid}[/green]")
+    
+    # Create pull request on GitHub
+    console.print("")
+    console.print("[bold]Creating GitHub Pull Request...[/bold]")
+    console.print("[yellow]This process will:[/yellow]")
+    console.print("[yellow]1. Check if you have direct push access to the repository[/yellow]")
+    console.print("[yellow]2. If you do, create a PR directly[/yellow]")
+    console.print("[yellow]3. If not, automatically create a fork, add files, and submit a PR from your fork[/yellow]")
+    console.print("")
+    
+    # Test GitHub access before proceeding
+    console.print("Testing GitHub API access...")
+    if not test_github_access():
+        console.print("[red]Failed to access GitHub API. Please check your token and internet connection.[/red]")
+        sys.exit(1)
+    
+    pr_url = create_model_pr(name, description, tags, cid, path)
+    
+    if pr_url:
+        console.print("")
+        console.print(f"[bold green]Model submission complete![/bold green]")
+        console.print(f"[green]IPFS CID: {cid}[/green]")
+        console.print(f"[green]Pull Request: {pr_url}[/green]")
+        console.print("")
+        console.print("[yellow]The OctoFaceHub team will review your submission.[/yellow]")
+    else:
+        console.print("")
+        console.print("[yellow]Model was uploaded to IPFS but the GitHub PR process failed.[/yellow]")
+        console.print(f"[green]IPFS CID: {cid}[/green]")
+        console.print(f"[green]Access at: https://w3s.link/ipfs/{cid}[/green]")
+        console.print("")
+        console.print("[yellow]You can try again later or use 'octoface generate-files' to manually create the files.[/yellow]")
         sys.exit(1)
 
 

@@ -47,105 +47,388 @@ def create_model_pr(model_name, description, tags, ipfs_cid, model_path):
         return None
     
     # Check if user has push access to the repository
-    if not has_push_access():
-        console.print("[red]You don't have push access to the repository.[/red]")
-        console.print("[yellow]To contribute to OctoFaceHub, you need to:[/yellow]")
-        console.print("[yellow]1. Fork the repository: https://github.com/octofacehub/octofacehub.github.io[/yellow]")
-        console.print("[yellow]2. Clone your fork[/yellow]")
-        console.print("[yellow]3. Add your model files manually[/yellow]")
-        console.print("[yellow]4. Commit and push to your fork[/yellow]")
-        console.print("[yellow]5. Create a pull request from your fork to the main repository[/yellow]")
-        console.print("")
-        console.print(f"[green]Your model was successfully uploaded to IPFS with CID: {ipfs_cid}[/green]")
-        console.print(f"[green]Access at: https://w3s.link/ipfs/{ipfs_cid}[/green]")
-        return None
-    
-    # Create a unique branch name with timestamp
-    timestamp = int(time.time())
-    model_name_slug = model_name.lower().replace(" ", "-")
-    branch_name = f"add-model-{model_name_slug}-{timestamp}"
-    
-    # Generate model metadata
-    metadata = generate_model_metadata(model_name, description, tags, ipfs_cid, model_path)
-    if not metadata:
-        console.print("[red]Failed to generate model metadata[/red]")
-        return None
-    
-    # Generate model tree
-    model_tree = generate_model_tree(model_path)
-    
-    # Generate README
-    readme_content = generate_readme(metadata, model_path)
+    has_push = has_push_access()
     
     try:
-        # Check if we need to create an initial commit
-        if not check_repo_initialized():
-            console.print("[yellow]Repository is empty. Creating initial commit...[/yellow]")
-            if not create_initial_commit():
-                console.print("[red]Failed to create initial commit[/red]")
-                return None
-        
-        # Use main as the default branch
-        default_branch = "main"
-        
-        # Create a new branch
-        branch_created = create_branch(branch_name, default_branch)
-        if not branch_created:
-            console.print("[red]Failed to create branch[/red]")
-            return None
-        
-        # Create model directory structure using the GitHub username
+        # Create a unique branch name with timestamp
+        timestamp = int(time.time())
         model_name_slug = model_name.lower().replace(" ", "-")
-        model_dir = f"models/{github_username}/{model_name_slug}"
+        branch_name = f"add-model-{model_name_slug}-{timestamp}"
         
-        # Create files in the new branch
-        files_to_create = [
-            {
-                "path": f"{model_dir}/README.md",
-                "content": readme_content,
-                "message": f"Add README for {model_name}"
-            },
-            {
-                "path": f"{model_dir}/metadata.json",
-                "content": json.dumps(metadata, indent=2),
-                "message": f"Add metadata for {model_name}"
-            },
-            {
-                "path": f"{model_dir}/tree.json",
-                "content": json.dumps(model_tree, indent=2),
-                "message": f"Add file tree for {model_name}"
-            }
-        ]
-        
-        # Create each file
-        for file_info in files_to_create:
-            if not create_file(file_info["path"], file_info["content"], file_info["message"], branch_name):
-                console.print(f"[red]Failed to create file: {file_info['path']}[/red]")
-                return None
-        
-        # Update the global model map
-        if not update_model_map(metadata, github_username, model_name_slug, branch_name):
-            console.print("[red]Failed to update model map[/red]")
+        # Generate model metadata
+        metadata = generate_model_metadata(model_name, description, tags, ipfs_cid, model_path)
+        if not metadata:
+            console.print("[red]Failed to generate model metadata[/red]")
             return None
         
-        # Create PR
-        pr_url = create_pull_request(
-            branch_name,
-            f"Add model: {model_name}",
-            f"This PR adds the {model_name} model by @{github_username}.\n\n"
-            f"Model description: {description or 'No description provided'}\n\n"
-            f"IPFS CID: `{ipfs_cid}`"
+        # Generate model tree
+        model_tree = generate_model_tree(model_path)
+        
+        # Generate README
+        readme_content = generate_readme(metadata, model_path)
+        
+        # If user has push access, create PR directly
+        if has_push:
+            try:
+                # Check if we need to create an initial commit
+                if not check_repo_initialized():
+                    console.print("[yellow]Repository is empty. Creating initial commit...[/yellow]")
+                    if not create_initial_commit():
+                        console.print("[red]Failed to create initial commit[/red]")
+                        return None
+                
+                # Use main as the default branch
+                default_branch = "main"
+                
+                # Create a new branch
+                branch_created = create_branch(branch_name, default_branch)
+                if not branch_created:
+                    console.print("[red]Failed to create branch[/red]")
+                    return None
+                
+                # Create model directory structure using the GitHub username
+                model_name_slug = model_name.lower().replace(" ", "-")
+                model_dir = f"models/{github_username}/{model_name_slug}"
+                
+                # Create files in the new branch
+                files_to_create = [
+                    {
+                        "path": f"{model_dir}/README.md",
+                        "content": readme_content,
+                        "message": f"Add README for {model_name}"
+                    },
+                    {
+                        "path": f"{model_dir}/metadata.json",
+                        "content": json.dumps(metadata, indent=2),
+                        "message": f"Add metadata for {model_name}"
+                    },
+                    {
+                        "path": f"{model_dir}/tree.json",
+                        "content": json.dumps(model_tree, indent=2),
+                        "message": f"Add file tree for {model_name}"
+                    }
+                ]
+                
+                # Create each file
+                for file_info in files_to_create:
+                    if not create_file(file_info["path"], file_info["content"], file_info["message"], branch_name):
+                        console.print(f"[red]Failed to create file: {file_info['path']}[/red]")
+                        return None
+                
+                # Update the global model map
+                if not update_model_map(metadata, github_username, model_name_slug, branch_name):
+                    console.print("[red]Failed to update model map[/red]")
+                    return None
+                
+                # Create PR
+                pr_url = create_pull_request(
+                    branch_name,
+                    f"Add model: {model_name}",
+                    f"This PR adds the {model_name} model by @{github_username}.\n\n"
+                    f"Model description: {description or 'No description provided'}\n\n"
+                    f"IPFS CID: `{ipfs_cid}`"
+                )
+                
+                if pr_url:
+                    console.print(f"[green]Successfully created PR: {pr_url}[/green]")
+                    return pr_url
+                else:
+                    console.print("[red]Failed to create PR[/red]")
+                    return None
+            
+            except Exception as e:
+                console.print(f"[red]Error creating PR: {str(e)}[/red]")
+                return None
+        else:
+            # For users without push access, use fork-based workflow
+            console.print("[yellow]You don't have push access to the main repository.[/yellow]")
+            console.print("[yellow]Creating a fork and PR on your behalf...[/yellow]")
+            
+            # Create a fork if it doesn't exist
+            fork_exists, fork_url = get_or_create_fork()
+            if not fork_exists:
+                console.print("[red]Failed to create or access fork[/red]")
+                return None
+            
+            console.print(f"[green]Using fork: {fork_url}[/green]")
+            
+            # Create a new branch in the fork
+            branch_created = create_branch_in_fork(branch_name, github_username)
+            if not branch_created:
+                console.print("[red]Failed to create branch in fork[/red]")
+                return None
+            
+            # Create model directory structure
+            model_dir = f"models/{github_username}/{model_name_slug}"
+            
+            # Create files in the fork branch
+            files_to_create = [
+                {
+                    "path": f"{model_dir}/README.md",
+                    "content": readme_content,
+                    "message": f"Add README for {model_name}"
+                },
+                {
+                    "path": f"{model_dir}/metadata.json",
+                    "content": json.dumps(metadata, indent=2),
+                    "message": f"Add metadata for {model_name}"
+                }
+            ]
+            
+            # Create each file in the fork
+            for file_info in files_to_create:
+                if not create_file_in_fork(file_info["path"], file_info["content"], file_info["message"], branch_name, github_username):
+                    console.print(f"[red]Failed to create file in fork: {file_info['path']}[/red]")
+                    return None
+            
+            # Create PR from fork to main repo
+            pr_url = create_pull_request_from_fork(
+                branch_name,
+                github_username,
+                f"Add model: {model_name}",
+                f"This PR adds the {model_name} model by @{github_username}.\n\n"
+                f"Model description: {description or 'No description provided'}\n\n"
+                f"IPFS CID: `{ipfs_cid}`"
+            )
+            
+            if pr_url:
+                console.print(f"[green]Successfully created PR from your fork: {pr_url}[/green]")
+                return pr_url
+            else:
+                console.print("[red]Failed to create PR from fork[/red]")
+                return None
+    
+    except Exception as e:
+        console.print(f"[red]Error: {str(e)}[/red]")
+        return None
+
+
+def get_or_create_fork():
+    """
+    Get or create a fork of the repository.
+    
+    Returns:
+        tuple: (bool, str) indicating success and fork URL
+    """
+    github_token = os.environ.get("GITHUB_API_TOKEN")
+    
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    try:
+        # Check if fork already exists
+        response = requests.get(
+            f"{API_BASE}/repos/{get_github_username()}/{REPO_NAME}",
+            headers=headers
         )
         
-        if pr_url:
-            console.print(f"[green]Successfully created PR: {pr_url}[/green]")
+        if response.status_code == 200:
+            # Fork already exists
+            console.print("[green]Using existing fork[/green]")
+            return True, response.json().get("html_url")
+        
+        # Create a new fork
+        console.print("[yellow]Creating a new fork...[/yellow]")
+        response = requests.post(
+            f"{API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/forks",
+            headers=headers
+        )
+        
+        if response.status_code in [200, 201, 202]:
+            console.print("[green]Fork created successfully[/green]")
+            return True, response.json().get("html_url")
+        else:
+            console.print(f"[red]Error creating fork: {response.status_code} {response.text}[/red]")
+            return False, None
+            
+    except Exception as e:
+        console.print(f"[red]Error checking/creating fork: {str(e)}[/red]")
+        return False, None
+
+
+def create_branch_in_fork(branch_name, github_username):
+    """
+    Create a new branch in the user's fork.
+    
+    Args:
+        branch_name (str): Name of the new branch
+        github_username (str): GitHub username
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    github_token = os.environ.get("GITHUB_API_TOKEN")
+    
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    try:
+        # Get the SHA of the latest commit on the main branch of the fork
+        response = requests.get(
+            f"{API_BASE}/repos/{github_username}/{REPO_NAME}/git/refs/heads/main",
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            # Wait a bit for the fork to be ready (GitHub may need time)
+            console.print("[yellow]Waiting for fork to be ready...[/yellow]")
+            time.sleep(5)
+            
+            # Try again
+            response = requests.get(
+                f"{API_BASE}/repos/{github_username}/{REPO_NAME}/git/refs/heads/main",
+                headers=headers
+            )
+        
+        if response.status_code == 200:
+            base_sha = response.json().get("object", {}).get("sha")
+            
+            if not base_sha:
+                console.print("[red]Failed to get base branch SHA[/red]")
+                return False
+            
+            # Create the new branch
+            data = {
+                "ref": f"refs/heads/{branch_name}",
+                "sha": base_sha
+            }
+            
+            response = requests.post(
+                f"{API_BASE}/repos/{github_username}/{REPO_NAME}/git/refs",
+                headers=headers,
+                json=data
+            )
+            
+            if response.status_code in [200, 201, 422]:  # 422 means branch already exists
+                console.print(f"[green]Successfully created branch in fork: {branch_name}[/green]")
+                return True
+            else:
+                console.print(f"[red]Error creating branch in fork: {response.status_code} {response.text}[/red]")
+                return False
+        else:
+            console.print(f"[red]Failed to get base branch from fork. Status: {response.status_code}[/red]")
+            console.print(f"[red]Response: {response.text}[/red]")
+            return False
+            
+    except Exception as e:
+        console.print(f"[red]Error creating branch in fork: {str(e)}[/red]")
+        return False
+
+
+def create_file_in_fork(path, content, commit_message, branch, github_username):
+    """
+    Create a file in the user's fork.
+    
+    Args:
+        path (str): Path to the file in the repository
+        content (str): File content
+        commit_message (str): Commit message
+        branch (str): Branch to create the file in
+        github_username (str): GitHub username
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    github_token = os.environ.get("GITHUB_API_TOKEN")
+    
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    try:
+        # Check if file already exists in fork
+        check_response = requests.get(
+            f"{API_BASE}/repos/{github_username}/{REPO_NAME}/contents/{path}?ref={branch}",
+            headers=headers
+        )
+        
+        if check_response.status_code == 200:
+            # File already exists, need to update it with a SHA
+            file_sha = check_response.json().get("sha")
+            
+            # Update the file
+            data = {
+                "message": commit_message,
+                "content": base64.b64encode(content.encode()).decode(),
+                "branch": branch,
+                "sha": file_sha
+            }
+        else:
+            # Create new file
+            data = {
+                "message": commit_message,
+                "content": base64.b64encode(content.encode()).decode(),
+                "branch": branch
+            }
+        
+        response = requests.put(
+            f"{API_BASE}/repos/{github_username}/{REPO_NAME}/contents/{path}",
+            headers=headers,
+            json=data
+        )
+        
+        if response.status_code in [200, 201]:
+            console.print(f"[green]Successfully created/updated file in fork: {path}[/green]")
+            return True
+        else:
+            console.print(f"[red]Error creating file in fork: {response.status_code} {response.text}[/red]")
+            return False
+            
+    except Exception as e:
+        console.print(f"[red]Error creating file in fork: {str(e)}[/red]")
+        return False
+
+
+def create_pull_request_from_fork(branch, github_username, title, body):
+    """
+    Create a pull request from a fork.
+    
+    Args:
+        branch (str): Branch to create PR from
+        github_username (str): GitHub username
+        title (str): PR title
+        body (str): PR body
+        
+    Returns:
+        str: URL of the created PR or None on failure
+    """
+    github_token = os.environ.get("GITHUB_API_TOKEN")
+    
+    headers = {
+        "Authorization": f"token {github_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+    
+    try:
+        data = {
+            "title": title,
+            "body": body,
+            "head": f"{github_username}:{branch}",
+            "base": "main"
+        }
+        
+        response = requests.post(
+            f"{API_BASE}/repos/{REPO_OWNER}/{REPO_NAME}/pulls",
+            headers=headers,
+            json=data
+        )
+        
+        if response.status_code == 201:
+            pr_data = response.json()
+            pr_url = pr_data.get("html_url")
+            console.print(f"[green]Successfully created PR from fork: {pr_url}[/green]")
             return pr_url
         else:
-            console.print("[red]Failed to create PR[/red]")
+            console.print(f"[red]Error creating PR from fork: {response.status_code} {response.text}[/red]")
             return None
-        
+            
     except Exception as e:
-        console.print(f"[red]Error creating PR: {str(e)}[/red]")
+        console.print(f"[red]Error creating PR from fork: {str(e)}[/red]")
         return None
 
 

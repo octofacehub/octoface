@@ -2,6 +2,21 @@
 
 All notable changes to the OctoFace CLI will be documented in this file.
 
+## [0.4.0] - 2023-07-31
+
+### Added
+
+- Fully automated fork-and-PR workflow for third-party contributors
+- GitHub API integration for creating forks, branches, and PRs
+- No more manual Git operations needed for model submission
+- Better error handling and user guidance during the submission process
+
+### Changed
+
+- Improved CLI output with clearer instructions
+- Streamlined upload command with better prompts for missing data
+- Updated documentation to reflect the simplified workflow
+
 ## [0.3.0] - 2023-07-31
 
 ### Added

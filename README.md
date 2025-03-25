@@ -32,28 +32,38 @@ octoface test-github
 ### Download models from HuggingFace
 
 ```bash
-octoface download "hf-username/cool-model"
+octoface download "hf://username/cool-model"
 ```
 
-### Upload models to IPFS and GitHub
+### Upload models to IPFS and contribute to OctoFaceHub
 
 ```bash
-# Upload local model
-octoface upload . --name "gemma-3-4b-it"
+# Upload local model with full details
+octoface upload ./path/to/model --name "My Model" --description "A cool model" --tags "cool,awesome"
 
-# Upload with description
-octoface upload "./path/to/model/gemma-3-4b-it" --description "State-of-the-art open models from Google"
+# Upload with minimal details (prompts for missing information)
+octoface upload ./path/to/model
 
-# Upload with tags
-octoface upload "./path/to/model" --name "My Model" --description "A cool model" --tags "cool,awesome"
-
-# Download from HF and upload in one step
-octoface upload "hf-username/cool-model"
+# Upload from HuggingFace in one step
+octoface upload hf://username/cool-model
 ```
 
-### Generate files for manual submission
+The upload command will:
 
-If you don't have push access to the OctoFaceHub repository, you can generate the necessary files and submit them manually:
+1. Upload your model to IPFS
+2. Check if you have push access to the repository
+3. If you have push access, create a PR directly
+4. If you don't have push access, automatically:
+   - Create a fork of the repository (or use existing fork)
+   - Create a branch
+   - Add your model files
+   - Create a pull request from your fork
+
+No manual Git operations required!
+
+### Generate files only (without submitting PR)
+
+If you want to generate the model files without submitting a PR:
 
 ```bash
 # Generate files using a local model directory
@@ -63,10 +73,20 @@ octoface generate-files --path "./path/to/model" --name "My Model" --description
 octoface generate-files --cid "bafybeih2qqh6rfmgrrggvkwsve7yuru72tm66vmp2cc5q7nmhytnovq7dm" --name "My Model" --description "A cool model" --tags "cool,awesome"
 
 # Specify custom output directory
-octoface generate-files --path "./path/to/model" --name "My Model" --description "A cool model" --tags "cool,awesome" --output "./my-files"
+octoface generate-files --path "./path/to/model" --output "./my-files"
 ```
 
-After generating the files, follow the instructions in the GUIDE.md file to submit your model to OctoFaceHub.
+## Permissions
+
+OctoFaceHub uses a directory-based permission model:
+
+- Each GitHub user can only modify files in their own `models/username/` directory
+- GitHub Actions validate that PRs only contain changes to your own directory
+- The model-map.json is automatically updated when your PR is merged
+
+## Contributing
+
+Contributions to OctoFace CLI are welcome! Please feel free to submit a pull request.
 
 ## License
 
